@@ -346,10 +346,29 @@ function Particle({ delay, x, y, size }) {
 /* ─────────────────────────────────────────────
    Main screen
 ───────────────────────────────────────────── */
+const WEBHOOK_URL = import.meta.env.VITE_SHEETS_WEBHOOK_URL
+
+async function saveToSheets(answers) {
+  if (!WEBHOOK_URL) return
+  try {
+    // no-cors: Apps Script doesn't support preflight — request fires fine,
+    // response is opaque but the sheet row is written successfully.
+    await fetch(WEBHOOK_URL, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(answers),
+    })
+  } catch (_) {
+    // Network errors are silent — don't block the UX
+  }
+}
+
 export default function SubmitScreen({ answers }) {
   const [stepIdx,     setStepIdx]     = useState(0)
   const [phase,       setPhase]       = useState('loading')
   const [showReport,  setShowReport]  = useState(false)
+  const [saveStatus,  setSaveStatus]  = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -357,7 +376,18 @@ export default function SubmitScreen({ answers }) {
         const next = i + 1
         if (next >= LOADING_STEPS.length) {
           clearInterval(timer)
-          setTimeout(() => setPhase('success'), 700)
+          setTimeout(async () => {
+            setPhase('success')
+            if (WEBHOOK_URL) {
+              setSaveStatus('saving')
+              try {
+                await saveToSheets(answers)
+                setSaveStatus('saved')
+              } catch (_) {
+                setSaveStatus('error')
+              }
+            }
+          }, 700)
         }
         return Math.min(next, LOADING_STEPS.length - 1)
       })
@@ -541,6 +571,38 @@ export default function SubmitScreen({ answers }) {
                   A BrowserStack Solutions Engineer will follow up at{' '}
                   <span className="text-slate-400">{answers?.email || 'your email'}</span>
                 </p>
+
+                {/* Sheet save status — only visible when webhook is configured */}
+                <AnimatePresence>
+                  {saveStatus === 'saving' && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="flex items-center justify-center gap-1.5 text-slate-600 text-xs mt-2"
+                    >
+                      <motion.span
+                        animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        className="inline-block"
+                      >⟳</motion.span>
+                      Saving responses…
+                    </motion.p>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="flex items-center justify-center gap-1.5 text-green-600 text-xs mt-2"
+                    >
+                      ✓ Responses saved to Google Sheets
+                    </motion.p>
+                  )}
+                  {saveStatus === 'error' && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="text-slate-600 text-xs mt-2"
+                    >
+                      ⚠ Could not reach Google Sheets — check webhook URL
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </motion.div>
             </motion.div>
           )}
