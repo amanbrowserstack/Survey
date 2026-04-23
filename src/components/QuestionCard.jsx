@@ -443,63 +443,65 @@ export default function QuestionCard({
           <div />
         )}
 
-        {/* Next / Submit */}
-        {/* Hide next button for auto-advance types unless optional skip is needed */}
-        {(question.type === 'text' || question.type === 'email' || question.type === 'range-slider' ||
-          (!question.required && (question.type === 'card-select' || question.type === 'radio'))) && (
-          <motion.button
-            type="button"
-            whileHover={canProceed ? { scale: 1.04, y: -1 } : {}}
-            whileTap={canProceed ? { scale: 0.97 } : {}}
-            onClick={handleNext}
-            className={`
-              flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm
-              transition-all duration-200
-              ${canProceed
-                ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white shadow-[0_0_24px_rgba(255,102,0,0.35)] hover:shadow-[0_0_36px_rgba(255,102,0,0.5)]'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-              }
-            `}
-          >
-            {isLast ? (
-              <>
-                <Icons.Sparkles className="w-4 h-4" />
-                Generate Report
-              </>
-            ) : (
-              <>
-                Continue
-                <Icons.ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </motion.button>
-        )}
+        {/* Next / Submit
+            Rules:
+            - single card-select & radio → auto-advance on pick, no button needed
+            - multi-select card-select   → always show Continue (required = must have ≥1, optional = can skip)
+            - text / email / range-slider → always show Continue
+        */}
+        {(() => {
+          const isAutoAdvance = question.type === 'radio' ||
+            (question.type === 'card-select' && question.single)
+          const isMultiSelect = question.type === 'card-select' && !question.single
+          const needsButton   = !isAutoAdvance // text, email, range-slider, multi-select
 
-        {/* For required card/radio — show a subtle skip-less continue once answered */}
-        {question.required && (question.type === 'card-select' || question.type === 'radio') && hasAnswer && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-slate-500 text-xs flex items-center gap-1"
-          >
-            <Icons.Check className="w-3.5 h-3.5 text-green-400" />
-            <span className="text-green-400">Advancing…</span>
-          </motion.div>
-        )}
+          if (!needsButton) return null
 
-        {/* Optional card/radio already has continue above; for clarity show skip too */}
-        {!question.required && (question.type === 'card-select' || question.type === 'radio') && !hasAnswer && (
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onNext}
-            className="flex items-center gap-1.5 px-5 py-3 rounded-2xl text-slate-400 hover:text-white border border-slate-700 hover:border-slate-600 bg-slate-800/50 hover:bg-slate-800 text-sm font-medium transition-all"
-          >
-            Skip
-            <Icons.ChevronRight className="w-4 h-4" />
-          </motion.button>
-        )}
+          // Optional multi-select with nothing chosen → show Skip instead
+          if (isMultiSelect && !question.required && !hasAnswer) {
+            return (
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={onNext}
+                className="flex items-center gap-1.5 px-5 py-3 rounded-2xl text-slate-400 hover:text-white border border-slate-700 hover:border-slate-600 bg-slate-800/50 hover:bg-slate-800 text-sm font-medium transition-all"
+              >
+                Skip
+                <Icons.ChevronRight className="w-4 h-4" />
+              </motion.button>
+            )
+          }
+
+          return (
+            <motion.button
+              type="button"
+              whileHover={canProceed ? { scale: 1.04, y: -1 } : {}}
+              whileTap={canProceed ? { scale: 0.97 } : {}}
+              onClick={handleNext}
+              className={`
+                flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm
+                transition-all duration-200
+                ${canProceed
+                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white shadow-[0_0_24px_rgba(255,102,0,0.35)] hover:shadow-[0_0_36px_rgba(255,102,0,0.5)]'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                }
+              `}
+            >
+              {isLast ? (
+                <>
+                  <Icons.Sparkles className="w-4 h-4" />
+                  Generate Report
+                </>
+              ) : (
+                <>
+                  Continue
+                  <Icons.ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </motion.button>
+          )
+        })()}
       </motion.div>
     </motion.div>
   )
